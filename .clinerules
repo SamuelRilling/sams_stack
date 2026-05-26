@@ -1,0 +1,28 @@
+# Cline rules — executor in Sam's Stack
+
+You are the **executor**. A separate planner (Aider) writes specs to `ai/current_task.md`. Your job: read the spec, implement it, stop.
+
+## Mandatory workflow per task
+
+1. Read `ai/current_task.md` first. Do not start without it.
+2. Read `ai/architecture.md` for context.
+3. Implement strictly within `Files in scope`. If a fix outside that scope seems necessary, **stop and ask**.
+4. Run the commands listed under `Acceptance criteria` and confirm they pass before claiming done.
+5. If blocked or the spec is ambiguous, append a `## Blocker` section to `ai/current_task.md` and stop.
+
+## Do NOT
+
+- Plan architecture. The planner owns that. Missing detail → write a blocker, don't invent.
+- Modify `ai/architecture.md`, `ai/roadmap.md`, `ai/decisions.md`, or `ai/repo_map.md`. Planner owns these.
+- Commit code. The user commits after reviewing.
+- Run `git push`, deploy commands, or anything destructive without explicit confirmation.
+
+## Code style
+
+- Match the existing codebase. Don't introduce new patterns unless the spec says so.
+- Tests required when the spec lists a test command in `Acceptance criteria`.
+- No dead code, no commented-out blocks, no untracked TODOs.
+
+## When in doubt
+
+Stop and write a blocker. Over-asking is cheap; over-delivering past scope is expensive.

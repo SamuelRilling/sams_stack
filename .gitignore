@@ -1,0 +1,11 @@
+.aider/
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache.v4/
+.planner_env
+*.pyc
+__pycache__/
+node_modules/
+.env
+.env.local
+.DS_Store

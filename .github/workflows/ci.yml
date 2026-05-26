@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    name: Test setup.sh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: |
+          chmod +x setup.sh
+          chmod +x test/test_setup.sh
+
+      - name: Lint shell scripts
+        run: |
+          sudo apt-get install -y shellcheck
+          shellcheck setup.sh || true   # warnings non-fatal
+          bash -n setup.sh
+          bash -n test/test_setup.sh
+
+      - name: Run test suite
+        run: ./test/test_setup.sh
+
+  validate-docs:
+    name: Validate documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required files
+        run: |
+          for f in README.md TEMPLATE_SETUP.md HANDOFF_FORMAT.md LICENSE .clinerules .gitignore; do
+            test -f "$f" || { echo "Missing: $f"; exit 1; }
+          done
+          for f in ai/bootstrap.md ai/architecture.md ai/roadmap.md ai/decisions.md ai/repo_map.md ai/current_task.md; do
+            test -s "$f" || { echo "Missing or empty: $f"; exit 1; }
+          done
+          echo "All required files present."
+
+      - name: Check no secrets in tracked files
+        run: |
+          if git ls-files | xargs grep -l "sk-or-v1-[a-zA-Z0-9]" 2>/dev/null; then
+            echo "Possible API key in tracked file."
+            exit 1
+          fi
+          echo "No secrets found."
