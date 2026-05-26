@@ -46,7 +46,7 @@ jobs:
 
       - name: Check no secrets in tracked files
         run: |
-          if git ls-files | xargs grep -l "sk-or-v1-[a-zA-Z0-9]" 2>/dev/null; then
+          if git ls-files | xargs grep -lE "sk-or-v1-[a-zA-Z0-9]{20,}" 2>/dev/null; then
             echo "Possible API key in tracked file."
             exit 1
           fi

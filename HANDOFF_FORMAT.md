@@ -68,4 +68,4 @@ How the planner (Aider) communicates with the executor (Cline) via `ai/current_t
 
 ## Example
 
-See `docs/examples/` for a real `handoff.md` and `current_task.md` produced during template development.
+See `docs/examples/handoff.md` for a real handoff produced during template development.

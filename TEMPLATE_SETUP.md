@@ -88,6 +88,39 @@ planner          # resume
 
 Run `planner-swap` again to switch back.
 
+## Using different models
+
+`planner-swap` toggles between `PLANNER_MODEL_PRIMARY` and `PLANNER_MODEL_BACKUP`, both defined in `~/.planner_env`.
+
+To change either model, edit `~/.planner_env` directly:
+```bash
+# Change the primary model:
+PLANNER_MODEL_PRIMARY='openrouter/provider/model-id'
+
+# Change the backup model:
+PLANNER_MODEL_BACKUP='openrouter/provider/model-id'
+```
+
+After editing, reload:
+```bash
+source ~/.planner_env   # or open a new terminal
+```
+
+Any model available on OpenRouter works. Browse free options at:
+https://openrouter.ai/models?fmt=table&supported_parameters=tools&max_price=0
+
+Format must be: `openrouter/<provider>/<model-id>`
+
+Examples:
+```bash
+PLANNER_MODEL_PRIMARY='openrouter/qwen/qwen-2.5-coder-32b-instruct:free'
+PLANNER_MODEL_BACKUP='openrouter/meta-llama/llama-3.3-70b-instruct:free'
+# PLANNER_MODEL_PRIMARY='openrouter/deepseek/deepseek-chat-v3.1:free'
+# PLANNER_MODEL_PRIMARY='openrouter/z-ai/glm-4.5-air:free'
+```
+
+> **Note:** `planner-swap` only handles two models. For three or more, swap manually by editing `PLANNER_MODEL` directly in `~/.planner_env` and re-sourcing.
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |

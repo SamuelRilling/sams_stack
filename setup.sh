@@ -5,27 +5,31 @@
 # runtime, wires your shell, and scaffolds the repo. Idempotent — safe to re-run.
 #
 # Usage:
-#   ./setup.sh             # interactive install
-#   ./setup.sh --uninstall # remove planner runtime (project files preserved)
-#   ./setup.sh --no-deps   # skip dependency install (assume already present)
-#   ./setup.sh --quiet     # less output, fail-fast
+#   ./setup.sh                  # interactive install
+#   ./setup.sh --uninstall      # remove planner runtime (project files preserved)
+#   ./setup.sh --no-deps        # skip dependency install (assume already present)
+#   ./setup.sh --quiet          # less output, fail-fast
+#   ./setup.sh --name=<project> # set project name in seeded ai/ files
 
 set -euo pipefail
 
 # ── Configuration ───────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$SCRIPT_DIR}"
+PROJECT_SLUG="$(basename "$PROJECT_DIR" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/-*$//')"
+[[ -z "$PROJECT_SLUG" ]] && PROJECT_SLUG="project"
 
 PLANNER_MODEL_DEFAULT="openrouter/z-ai/glm-4.5-air:free"
 PLANNER_MODEL_BACKUP_DEFAULT="openrouter/deepseek/deepseek-chat-v3.1:free"
 
 BIN_DIR="$HOME/.local/bin"
-ENV_FILE="$HOME/.planner_env"
-BASHRC_MARKER="# >>> sams_stack runtime >>>"
-BASHRC_END="# <<< sams_stack runtime <<<"
+ENV_FILE="$HOME/.planner_env_${PROJECT_SLUG}"
+BASHRC_MARKER="# >>> sams_stack runtime: ${PROJECT_SLUG} >>>"
+BASHRC_END="# <<< sams_stack runtime: ${PROJECT_SLUG} <<<"
 
 QUIET=false
 SKIP_DEPS=false
+PROJECT_NAME=""
 
 # ── Output helpers ──────────────────────────────────────────────────────────
 say()  { $QUIET || printf "\033[1;36m[setup]\033[0m %s\n" "$*"; }
@@ -45,10 +49,11 @@ for arg in "$@"; do
       say "Removed. Project files in $PROJECT_DIR left intact."
       exit 0
       ;;
-    --no-deps) SKIP_DEPS=true ;;
-    --quiet)   QUIET=true ;;
+    --no-deps)  SKIP_DEPS=true ;;
+    --quiet)    QUIET=true ;;
+    --name=*)   PROJECT_NAME="${arg#--name=}" ;;
     --help|-h)
-      sed -n '2,12p' "$0" | sed 's/^# //;s/^#//'
+      sed -n '2,14p' "$0" | sed 's/^# //;s/^#//'
       exit 0
       ;;
   esac
@@ -149,16 +154,25 @@ if [[ -f "$ENV_FILE" ]]; then
   source "$ENV_FILE"
 fi
 
-if [[ -z "${OPENROUTER_API_KEY:-}" ]]; then
+_key_valid() {
+  local k="${1:-}"
+  [[ -n "$k" ]] && [[ "$k" != "REPLACE_WITH_YOUR_KEY" ]] && [[ "$k" =~ ^sk-or-v1- ]]
+}
+
+if _key_valid "${OPENROUTER_API_KEY:-}"; then
+  ok "Using existing OPENROUTER_API_KEY (${#OPENROUTER_API_KEY} chars)"
+  KEY_VAL="$OPENROUTER_API_KEY"
+else
   echo
   echo "Get a free OpenRouter API key at: https://openrouter.ai/keys"
   read -rsp "Enter OPENROUTER_API_KEY: " key; echo
   [[ -z "$key" ]] && die "Empty key."
+  if [[ ! "$key" =~ ^sk-or-v1- ]]; then
+    warn "Key does not start with sk-or-v1- — double-check it's an OpenRouter key."
+  fi
   KEY_VAL="$key"
-else
-  KEY_VAL="$OPENROUTER_API_KEY"
-  ok "Reusing existing OPENROUTER_API_KEY"
 fi
+ok "Key to be written: ${#KEY_VAL} chars"
 
 umask 077
 cat > "$ENV_FILE" <<EOF
@@ -207,11 +221,20 @@ planner-swap() {
 
 # ── planner-status: show active config ──────────────────────────────────────
 planner-status() {
+  local key="\${OPENROUTER_API_KEY:-}"
   echo "Project:        \$PROJECT_DIR"
   echo "Planner model:  \$PLANNER_MODEL"
   echo "  primary:      \$PLANNER_MODEL_PRIMARY"
   echo "  backup:       \$PLANNER_MODEL_BACKUP"
-  [[ -n "\${OPENROUTER_API_KEY:-}" ]] && echo "API key:        set (\${#OPENROUTER_API_KEY} chars)" || echo "API key:        MISSING"
+  if [[ -z "\$key" ]]; then
+    echo "API key:        MISSING — run ./setup.sh"
+  elif [[ "\$key" == "REPLACE_WITH_YOUR_KEY" ]] || [[ "\$key" == sk-or-v1-fake* ]]; then
+    echo "API key:        INVALID (placeholder) — re-run ./setup.sh"
+  elif [[ "\$key" =~ ^sk-or-v1- ]]; then
+    echo "API key:        valid (\${#key} chars)"
+  else
+    echo "API key:        unrecognized format (\${#key} chars) — expected sk-or-v1-…"
+  fi
 }
 EOF
 chmod 600 "$ENV_FILE"
@@ -242,11 +265,11 @@ fi
 
 # Seed memory files only if missing (preserve existing content)
 declare -A SEEDS=(
-  ["ai/architecture.md"]="# Architecture\n\n> Replace with your project's reality. Keep brief — read every planner session."
+  ["ai/architecture.md"]="# Architecture${PROJECT_NAME:+ — $PROJECT_NAME}\n\n> Replace with your project's reality. Keep brief — read every planner session."
   ["ai/roadmap.md"]="# Roadmap\n\n## Now\n\n## Next\n\n## Later\n\n## Done"
   ["ai/decisions.md"]="# Decisions\n\n> Append-only log of architectural choices."
   ["ai/repo_map.md"]="# Repo Map\n\n> High-level orientation by purpose."
-  ["ai/current_task.md"]="# No active task\n\nRun the planner to write the first task here."
+  ["ai/current_task.md"]="# ${PROJECT_NAME:+$PROJECT_NAME — }No active task\n\nRun the planner to write the first task here."
 )
 for f in "${!SEEDS[@]}"; do
   if [[ ! -s "$f" ]]; then

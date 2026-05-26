@@ -6,56 +6,15 @@ A reusable two-agent workflow for vibe coding:
 - **Planner** — [Aider](https://aider.chat) in plain chat mode, running GLM-4.5-air (free via OpenRouter), with DeepSeek as fallback when rate-limited
 - **Executor** — [Cline](https://cline.bot) in VS Code, model of your choice
 
-The planner decomposes work into one task at a time and writes the spec to `ai/current_task.md`. You hand that spec to Cline, which writes the code. Memory lives in version-controlled markdown files — no vendor lock-in, no surprise context loss.
+## Why Sam's Stack
 
-## Why this exists
+- **Completely free** — runs on OpenRouter's free tier; no credit card required
+- **Fully open source** — MIT license; fork it, hack it, own it
+- **Lightweight** — no daemon, no Electron app; just shell scripts + Aider + Cline
+- **Runs locally** — no Sam's-Stack-branded cloud service; everything runs on your machine
+- **Data privacy** — your code stays on your machine; only prompts go to your chosen LLM provider
 
-Single-agent coding tools mix planning and execution badly. Plans get lost in chat history, the model edits when it should be thinking, and context windows fill with noise. Splitting the two roles into separate processes — each with its own model, prompt, and memory — gives you better plans and cleaner code.
-
-Both layers run on free-tier OpenRouter models. Total monthly cost: $0.
-
-## Use this as a template
-
-1. Click **"Use this template"** on GitHub
-2. Clone your new repo locally:
-   ```bash
-   git clone https://github.com/YOU/YOUR-PROJECT.git ~/projects/your-project
-   cd ~/projects/your-project
-   ```
-3. Run setup:
-   ```bash
-   ./setup.sh
-   ```
-   The script installs `aider-chat`, prompts for your OpenRouter API key, wires your shell, and scaffolds the project.
-
-4. New terminal (or `source ~/.bashrc`):
-   ```bash
-   planner-status     # verify config
-   planner            # launch the planner
-   ```
-
-5. Open VS Code with the [Cline extension](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev) for the executor side.
-
-See [TEMPLATE_SETUP.md](TEMPLATE_SETUP.md) for the full post-fork checklist.
-
-## What setup.sh installs
-
-- `git`, `python3`, `python3-pip`, `pipx` (via apt on Ubuntu/Debian/WSL; brew on macOS)
-- `aider-chat` (via pipx)
-- Wires `~/.planner_env` and `~/.bashrc` so `planner` works from any directory
-- Scaffolds `ai/` memory files (preserves existing content)
-
-Re-runnable. Has `--uninstall`, `--no-deps`, `--quiet`. See `./setup.sh --help`.
-
-## Quick reference
-
-| Command | What it does |
-|---|---|
-| `planner` | Launch Aider in the project directory |
-| `planner-status` | Show active model and config |
-| `planner-swap` | Toggle planner model: GLM ↔ DeepSeek (when rate-limited) |
-
-## The workflow
+## Architecture
 
 ```
 You: "Plan the next task for the auth system."
@@ -75,6 +34,59 @@ Loop
 
 The handoff is intentionally manual. Automating it before the format stabilizes locks in bad conventions. See [HANDOFF_FORMAT.md](HANDOFF_FORMAT.md).
 
+## Quick Start
+
+1. **Create from template**: visit https://github.com/SamuelRilling/sams_stack → click **"Use this template"** → **"Create a new repository"** → name it (e.g. `my-app`)
+
+2. **Clone YOUR new repo** (copy the URL from your new repo's green "Code" button):
+   ```bash
+   cd ~/projects
+   git clone <your-new-repo-url> my-app
+   cd my-app
+   ```
+
+3. **Run setup** (prompts for your OpenRouter key from https://openrouter.ai/keys):
+   ```bash
+   ./setup.sh
+   ```
+
+4. **Activate**:
+   ```bash
+   source ~/.bashrc
+   ```
+
+5. **Verify**:
+   ```bash
+   planner-status   # must show "API key: valid"
+   ```
+
+See [TEMPLATE_SETUP.md](TEMPLATE_SETUP.md) for the full post-fork checklist.
+
+## Smoke test
+
+Launch the planner:
+```bash
+planner
+```
+
+Then paste at the prompt:
+```
+Read docs/examples/handoff.md. Based on Phase 1 only, write the first executable task to ai/current_task.md following HANDOFF_FORMAT.md.
+```
+
+After `Ctrl+C`:
+```bash
+cat ai/current_task.md   # should contain a structured task spec
+```
+
+## Quick reference
+
+| Command | What it does |
+|---|---|
+| `planner` | Launch Aider in the project directory |
+| `planner-status` | Show active model and config |
+| `planner-swap` | Toggle planner model: GLM ↔ DeepSeek (when rate-limited) |
+
 ## Files
 
 | Path | Purpose |
@@ -89,7 +101,7 @@ The handoff is intentionally manual. Automating it before the format stabilizes 
 | `ai/repo_map.md` | Codebase orientation |
 | `.clinerules` | Executor behavior contract |
 | `HANDOFF_FORMAT.md` | `current_task.md` schema |
-| `docs/examples/` | Sample task specs and project handoff |
+| `docs/examples/handoff.md` | Sample handoff produced during template development |
 
 ## Requirements
 
@@ -106,6 +118,7 @@ The handoff is intentionally manual. Automating it before the format stabilizes 
 | `OPENROUTER_API_KEY not set` | Re-run `./setup.sh` |
 | `Another planner is already running` | `rm .aider/planner.lock` |
 | Rate-limited by GLM | `planner-swap` |
+| `planner-status` shows wrong models | `source ~/.planner_env` (your current shell has the old function) |
 
 ## Credits
 

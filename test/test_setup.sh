@@ -22,6 +22,10 @@ FAKE_HOME="$SANDBOX/home"
 PROJECT="$SANDBOX/project"
 mkdir -p "$FAKE_HOME" "$PROJECT"
 
+PROJECT_SLUG="$(basename "$PROJECT" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/-*$//')"
+[[ -z "$PROJECT_SLUG" ]] && PROJECT_SLUG="project"
+EXPECTED_ENV="$FAKE_HOME/.planner_env_${PROJECT_SLUG}"
+
 cp -r "$REPO_DIR"/* "$PROJECT/" 2>/dev/null
 cp -r "$REPO_DIR"/.clinerules "$REPO_DIR"/.gitignore "$REPO_DIR"/.github "$PROJECT/" 2>/dev/null || true
 
@@ -51,7 +55,6 @@ grep -q "FAILURE RULE" ai/bootstrap.md     && ok "Contains 'FAILURE RULE'"    ||
 
 hdr "Phase 4: Examples preserved"
 [[ -f docs/examples/handoff.md ]]            && ok "docs/examples/handoff.md present"            || fail "handoff.md example missing"
-[[ -f docs/examples/prompt-01-foundation.md ]] && ok "docs/examples/prompt-01-foundation.md present" || fail "foundation example missing"
 
 hdr "Phase 5: setup.sh syntax"
 bash -n setup.sh 2>/dev/null && ok "setup.sh syntax OK" || fail "setup.sh syntax error"
@@ -65,11 +68,14 @@ grep -q "planner-swap()"   setup.sh && ok "planner-swap function"   || fail "pla
 grep -q "planner-status()" setup.sh && ok "planner-status function" || fail "planner-status missing"
 grep -q "PLANNER_MODEL_BACKUP" setup.sh && ok "PLANNER_MODEL_BACKUP defined" || fail "PLANNER_MODEL_BACKUP missing"
 grep -q "deepseek" setup.sh && ok "DeepSeek backup configured" || fail "DeepSeek missing"
+grep -q "sk-or-v1-" setup.sh && ok "setup.sh validates sk-or-v1- prefix" || fail "setup.sh missing sk-or-v1- prefix check"
+grep -A 25 "planner-status()" setup.sh | grep -q "sk-or-v1-" && ok "planner-status checks sk-or-v1- format" || fail "planner-status missing sk-or-v1- format check"
 
 hdr "Phase 8: CLI flags"
 grep -q "\-\-uninstall" setup.sh && ok "--uninstall flag"      || fail "--uninstall missing"
 grep -q "\-\-no-deps"   setup.sh && ok "--no-deps flag"        || fail "--no-deps missing"
 grep -q "\-\-quiet"     setup.sh && ok "--quiet flag"          || fail "--quiet missing"
+grep -q "\-\-name"     setup.sh && ok "--name flag"           || fail "--name missing"
 grep -q "\-\-help"      setup.sh && ok "--help flag"           || fail "--help missing"
 
 hdr "Phase 9: Dependency-install logic"
@@ -98,7 +104,7 @@ HOME="$FAKE_HOME" OPENROUTER_API_KEY="sk-or-v1-faketestkey" \
 RC=$?
 [[ $RC -eq 0 ]] && ok "setup.sh exits 0 (first run)" || { fail "setup.sh exit $RC"; tail -20 "$SANDBOX/setup.log"; }
 
-[[ -f "$FAKE_HOME/.planner_env" ]]   && ok "~/.planner_env created"   || fail "~/.planner_env not created"
+[[ -f "$EXPECTED_ENV" ]]             && ok "~/.planner_env_* created"  || fail "env file not created ($EXPECTED_ENV)"
 [[ -f "$PROJECT/run_planner.sh" ]]   && ok "run_planner.sh generated" || fail "run_planner.sh missing"
 [[ -d "$PROJECT/.git" ]]             && ok "git repo initialized"     || fail "git repo missing"
 
@@ -121,19 +127,19 @@ grep -q "\-\-read ai/bootstrap.md" "$RP" && ok "Reads bootstrap.md"   || fail "b
 
 hdr "Phase 13: Functions callable after sourcing env"
 HOME="$FAKE_HOME" bash -c "
-  source '$FAKE_HOME/.planner_env'
+  source '$EXPECTED_ENV'
   type planner-swap >/dev/null && type planner-status >/dev/null && echo OK
 " | grep -q OK && ok "planner-swap + planner-status defined" || fail "Functions not defined after source"
 
 hdr "Phase 14: API key file permissions"
-PERMS=$(stat -c '%a' "$FAKE_HOME/.planner_env" 2>/dev/null || stat -f '%A' "$FAKE_HOME/.planner_env" 2>/dev/null)
-[[ "$PERMS" == "600" ]] && ok ".planner_env chmod 600" || fail ".planner_env perms = $PERMS (expected 600)"
+PERMS=$(stat -c '%a' "$EXPECTED_ENV" 2>/dev/null || stat -f '%A' "$EXPECTED_ENV" 2>/dev/null)
+[[ "$PERMS" == "600" ]] && ok ".planner_env_* chmod 600" || fail ".planner_env_* perms = $PERMS (expected 600)"
 
 hdr "Phase 15: Uninstall"
 HOME="$FAKE_HOME" bash setup.sh --uninstall > "$SANDBOX/uninstall.log" 2>&1
 RC=$?
 [[ $RC -eq 0 ]] && ok "Uninstall exits 0" || fail "Uninstall failed ($RC)"
-[[ ! -f "$FAKE_HOME/.planner_env" ]] && ok "Uninstall removed .planner_env" || fail "Uninstall left .planner_env"
+[[ ! -f "$EXPECTED_ENV" ]] && ok "Uninstall removed .planner_env_*" || fail "Uninstall left $EXPECTED_ENV"
 ! grep -q "sams_stack runtime" "$FAKE_HOME/.bashrc" 2>/dev/null && ok "Uninstall cleaned bashrc" || fail "Uninstall left bashrc block"
 [[ -f "$PROJECT/run_planner.sh" ]] && ok "Project files preserved" || fail "Uninstall deleted project files"
 
